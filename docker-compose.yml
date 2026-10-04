@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # MySQL Database
+  mysql-db:
+    image: mysql:8.0
+    container_name: mysql-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: todo_db
+      MYSQL_USER: todo_user
+      MYSQL_PASSWORD: todo_pass
+    volumes:
+      - todo-db-data:/var/lib/mysql
+    networks:
+      - todo-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Node.js Express Backend
+  todo-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: todo-backend
+    restart: always
+    environment:
+      DB_HOST: mysql-db
+      DB_USER: todo_user
+      DB_PASSWORD: todo_pass
+      DB_NAME: todo_db
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+    networks:
+      - todo-network
+
+  # Nginx Frontend (Reverse Proxy)
+  todo-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: todo-frontend
+    restart: always
+    ports:
+      - "8080:80"
+    depends_on:
+      - todo-backend
+    networks:
+      - todo-network
+
+networks:
+  todo-network:
+    driver: bridge
+
+volumes:
+  todo-db-data:
